@@ -1,14 +1,15 @@
 {
-  "Title": "Walker",
+  "Title": "Urbex Walker",
   "Type": "game",
-  "Org": "facepunch",
-  "Ident": "walker",
+  "Org": "exorealms",
+  "Ident": "urbex_walker",
   "Schema": 1,
   "IncludeSourceFiles": false,
-  "Resources": null,
+  "Resources": "fonts/*\nmenu/*.jpg",
   "PackageReferences": [],
   "EditorReferences": null,
-  "IsWhitelistDisabled": false,
+  "Mounts": null,
+  "IsStandaloneOnly": false,
   "Metadata": {
     "MaxPlayers": 64,
     "MinPlayers": 1,
@@ -22,12 +23,15 @@
     "PerMapRanking": false,
     "LeaderboardType": "None",
     "CsProjName": "",
-    "StartupScene": "scenes/minimal.scene",
+    "StartupScene": "scenes/menu.scene",
     "ProjectTemplate": null,
-    "MapStartupScene": "scenes/minimal.scene",
-    "LaunchMode": "Launcher",
+    "MapStartupScene": "scenes/game.scene",
+    "LaunchMode": "Normal",
     "ControlModes": {
       "Keyboard": true
-    }
+    },
+    "ParentPackage": null,
+    "DedicatedServerStartupScene": "scenes/game.scene",
+    "SystemScene": "scenes/engine.scene"
   }
 }

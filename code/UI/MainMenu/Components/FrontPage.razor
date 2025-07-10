@@ -1,0 +1,54 @@
+@using Sandbox.UI
+
+@inherits Panel
+
+<root style="flex-direction: column;">
+    <div class="game-title">
+        Urbex Walker
+    </div>
+
+    <div class="controls">
+        @if (MainMenuPanel.Current?.InGame == true)
+        {
+            <a class="button" onclick=@LeaveGame>Leave Game</a>
+            <span style="height: 20px;"></span>
+        }
+        else
+        {
+            <a class="button" onclick="@CreateNewGame">Create Game</a>
+        }
+
+        <a class="button" onclick="@OpenServerList">Find a Game</a>
+        <a class="button" onclick="@Game.Overlay.ShowBinds">Settings</a>
+        <span style="height: 20px;"></span>
+        <a class="button" onclick="@CopyInviteToClipboard">Discord</a>
+        <a class="button" onclick=@Game.Close>Quit</a>
+    </div>
+</root>
+
+@code
+{
+    void CopyInviteToClipboard()
+    {
+        Clipboard.SetText("https://discord.gg/KR2CWdTB2J");
+    }
+
+    void LeaveGame()
+    {
+        Networking.Disconnect();
+        Scene.Load(MainMenuPanel.Current.MenuScene);
+    }
+
+    void CreateNewGame()
+    {
+        FindRootPanel().AddChild<CreateGameModal>();
+    }
+
+    void OpenServerList()
+    {
+        var options = new Sandbox.Modals.ServerListConfig();
+        options.GamePackageFilter = "exorealms.urbex_walker";
+
+        Game.Overlay.ShowServerList(options);
+    }
+}

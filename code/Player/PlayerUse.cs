@@ -32,9 +32,12 @@ public sealed class PlayerUse : Component, PlayerController.IEvents
 	/// </summary>
 	private bool CanCarry( Rigidbody rb )
 	{
-		if ( !rb.IsValid() ) return false;
-		if ( !rb.Network.Active ) return false;
-		if ( rb.Network.OwnerTransfer != OwnerTransfer.Takeover ) return false;
+		if ( !rb.IsValid() ) 
+			return false;
+		if ( !rb.Network.Active ) 
+			return false;
+		if ( rb.Network.OwnerTransfer != OwnerTransfer.Takeover )
+			return false;
 
 		return true;
 	}
@@ -90,13 +93,18 @@ public sealed class PlayerUse : Component, PlayerController.IEvents
 		if ( IsProxy )
 			return;
 
-		UpdateTooltips( Player.Controller.Hovered, Player.Controller.Pressed );
+        if (Input.Down("attack1"))
+        {
+            Input.SetAction("use", true);
+        }
+
+        UpdateTooltips( Player.Controller.Hovered, Player.Controller.Pressed );
 	}
 
 	private void StartCarry( Rigidbody rb )
 	{
-		if ( !rb.Network.TakeOwnership() )
-			return;
+        if (!rb.Network.IsOwner && !rb.Network.TakeOwnership())
+            return;
 
 		StopCarrying();
 

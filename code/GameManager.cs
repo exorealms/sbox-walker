@@ -1,73 +1,110 @@
-public sealed class GameManager : GameObjectSystem<GameManager>, Component.INetworkListener, ISceneStartup
+using Sandbox.Citizen;
+using Sandbox.Network;
+
+public sealed partial class GameManager : GameObjectSystem<GameManager>, IPlayerEvent, Component.INetworkListener, ISceneStartup
 {
-	public GameManager( Scene scene ) : base( scene )
-	{
-	}
+    public GameManager(Scene scene) : base(scene)
+    {
+    }
 
-	void ISceneStartup.OnHostPreInitialize( SceneFile scene )
-	{
-		Log.Info( $"Walker: Loading scene {scene.ResourceName}" );
-	}
+    async void ISceneStartup.OnHostInitialize()
+    {
+        // NOTE: See CreateGameModal.razor, line 73 for a related issue
 
-	void ISceneStartup.OnHostInitialize()
-	{
-		//
-		// TODO: We don't have a menu, but if we did we could put a special component in the menu
-		// scene that we'd now be able to detect, and skip doing the stuff below.
-		//
+        var currentScene = Scene.Source as SceneFile;
+        if (currentScene.GetMetadata("Title") != "menu")
+        {
+            if (!Networking.IsActive)
+            {
+                var lobbyConfig = new LobbyConfig
+                {
+                    Name = "Urbex Walker Server",
+                    Privacy = LobbyPrivacy.Public,
+                    Hidden = false,
+                    MaxPlayers = 32
+                };
 
-		//
-		// Spawn the engine scene.
-		// This scene is sent to clients when they join.
-		//
-		var slo = new SceneLoadOptions();
-		slo.IsAdditive = true;
-		slo.SetScene( "scenes/engine.scene" );
-		Scene.Load( slo );
+                Networking.CreateLobby(lobbyConfig);
+            }
 
-		// If we're not hosting a lobby, start hosting one
-		// so that people can join this game.
+            // If the map is a scene, load it
+            var mapPackage = await Package.FetchAsync(CustomMapInstance.Current.MapName, false);
+            if (mapPackage == null) return;
 
-		var lobbyConfig = new Sandbox.Network.LobbyConfig();
-		Networking.CreateLobby( lobbyConfig );
-	}
+            var primaryAsset = mapPackage.GetMeta<string>("PrimaryAsset");
+            if (string.IsNullOrEmpty(primaryAsset)) return;
 
-	void Component.INetworkListener.OnActive( Connection channel )
-	{
-		SpawnPlayerForConnection( channel );
-	}
+            var sceneLoadOptions = new SceneLoadOptions();
 
-	public void SpawnPlayerForConnection( Connection channel )
-	{
-		// Find a spawn location for this player
-		var startLocation = FindSpawnLocation().WithScale( 1 );
+            if (primaryAsset.EndsWith(".scene"))
+            {
+                var sceneFile = mapPackage.GetMeta<SceneFile>("PrimaryAsset");
 
-		// Spawn this object and make the client the owner
-		var playerGo = GameObject.Clone( "/player.prefab", new CloneConfig { Name = $"Player - {channel.DisplayName}", StartEnabled = true, Transform = startLocation } );
-		var player = playerGo.Components.Get<Player>( true );
-		playerGo.NetworkSpawn( channel );
+                sceneLoadOptions.SetScene(sceneFile);
+                Scene.Load(sceneLoadOptions);
 
-		IPlayerEvent.PostToGameObject( player.GameObject, x => x.OnSpawned() );
-	}
+                sceneLoadOptions.SetScene("scenes/engine.scene");
+                sceneLoadOptions.IsAdditive = true;
+                Scene.Load(sceneLoadOptions);
+            }
+        }
+    }
 
+    void Component.INetworkListener.OnActive(Connection channel)
+    {
+        SpawnPlayerForConnection(channel);
+    }
 
-	/// <summary>
-	/// Find the most appropriate place to respawn
-	/// </summary>
-	Transform FindSpawnLocation()
-	{
-		//
-		// If we have any SpawnPoint components in the scene, then use those
-		//
-		var spawnPoints = Scene.GetAllComponents<SpawnPoint>().ToArray();
-		if ( spawnPoints.Length > 0 )
-		{
-			return Random.Shared.FromArray( spawnPoints ).Transform.World;
-		}
+    public void SpawnPlayerForConnection(Connection channel)
+    {
+        if (Scene.GetAllComponents<Player>().Any(x => x.Network.Owner == channel))
+        {
+            Log.Info("GameManager: Tried to spawn multiple instances of the same player! Ignoring.");
+            return;
+        }
 
-		//
-		// Failing that, spawn where we are
-		//
-		return Transform.Zero;
-	}
+        var startLocation = FindSpawnLocation().WithScale(1);
+
+        // Spawn this object and make the client the owner
+        var playerGo = GameObject.Clone("/player.prefab", new CloneConfig { Name = $"Player - {channel.DisplayName}", StartEnabled = true, Transform = startLocation });
+        var player = playerGo.Components.GetOrCreate<Player>();
+
+        // Make sure all of these exist
+        var animHelper = playerGo.Components.GetInDescendantsOrSelf<CitizenAnimationHelper>();
+        var controller = playerGo.Components.GetOrCreate<PlayerController>();
+        var inventory = playerGo.Components.GetOrCreate<PlayerInventory>();
+
+        if (animHelper.IsValid())
+            player.Body = animHelper.GameObject;
+
+        if (controller.IsValid())
+            player.Controller = controller;
+
+        //if (inventory.IsValid())
+        //    player.Inventory = inventory;
+
+        playerGo.NetworkSpawn(channel);
+
+        IPlayerEvent.PostToGameObject(player.GameObject, x => x.OnSpawned());
+    }
+
+    /// <summary>
+    /// Find the most appropriate place to respawn
+    /// </summary>
+    Transform FindSpawnLocation()
+    {
+        //
+        // If we have any SpawnPoint components in the scene, then use those
+        //
+        var spawnPoints = Scene.GetAllComponents<SpawnPoint>().ToArray();
+        if (spawnPoints.Length > 0)
+        {
+            return Random.Shared.FromArray(spawnPoints).Transform.World;
+        }
+
+        //
+        // Failing that, spawn where we are
+        //
+        return Transform.Zero;
+    }
 }
